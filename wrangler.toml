@@ -1,12 +1,16 @@
 name = "kostl-traffic-api"
 type = "javascript"
 zone_id = ""
-account_id = ""
+account_id = "8ba5faa0475fa7bb616e22ba96a42cc3"
 route = ""
 workers_dev = true
 compatibility_date = "2022-02-23"
 
+kv_namespaces = [
+    { binding = "CACHES", preview_id = "6323ed1f6e4c44799647825b4b4a7762", id = "17fef2d7a844469385f519d505c371c7" }
+]
+
 [build]
-command = "npm install && npm run build"
+command = "yarn && yarn build"
 [build.upload]
 format = "service-worker"

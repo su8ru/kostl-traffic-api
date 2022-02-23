@@ -1,5 +1,6 @@
 {
   "compilerOptions": {
+    "baseUrl": "src",
     "outDir": "./dist",
     "module": "commonjs",
     "target": "esnext",
@@ -16,6 +17,6 @@
       "@types/service-worker-mock"
     ]
   },
-  "include": ["src"],
+  "include": ["**/*.ts"],
   "exclude": ["node_modules", "dist", "test"]
 }
