@@ -1,6 +1,6 @@
 import { Section, Train } from "types/response";
 import OdptTrain, { OdptDirection } from "types/toeiApi";
-import { destListToei } from "data";
+import { destListKeio, destListToei } from "data";
 import dayjs from "dayjs";
 import minMax from "dayjs/plugin/minMax";
 
@@ -31,9 +31,9 @@ const toeiParser = (
       direction:
         train["odpt:railDirection"] === OdptDirection.W ? "West" : "East",
       delay: train["odpt:delay"]!,
-      dest: destListToei[
-        train["odpt:destinationStation"]![0].split(".").pop()!
-      ],
+      dest: parseDestToId(
+        destListToei[train["odpt:destinationStation"]![0].split(".").pop()!]
+      ),
       length: null,
     });
   }
@@ -47,6 +47,10 @@ const toeiParser = (
 
   return { sections: result, date: date.format("YYYY.MM.DD HH:mm:ss") };
 };
+
+const parseDestToId = (destJa: string): string =>
+  Object.keys(destListKeio).filter((key) => destListKeio[key] === destJa)[0] ??
+  "999";
 
 const toeiStations: ReadonlyArray<string> = [
   "Shinjuku",
