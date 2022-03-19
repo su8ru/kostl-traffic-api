@@ -1,7 +1,15 @@
 import { Hono } from "hono";
+import { cors } from "hono/cors";
 import cacheHandler from "./cacheHandler";
 
 const app = new Hono();
+
+app.use(
+  "/*",
+  cors({
+    origin: "*",
+  })
+);
 
 app.get("/", (c) => c.json({ message: "Hello, world!" }));
 app.get("/keio", (c) =>
