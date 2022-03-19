@@ -1,4 +1,4 @@
-type TrainDirection = "East" | "West";
+export type TrainDirection = "East" | "West";
 
 export type Train = {
   id: string;
@@ -7,9 +7,11 @@ export type Train = {
   delay: number;
   dest: string;
   length: number | null;
+  section: Section;
 };
 
 export type Section = {
-  id: string;
-  trains: Train[];
+  id: number;
+  type: "Sta" | "Way" | "WayB";
+  track: number;
 };

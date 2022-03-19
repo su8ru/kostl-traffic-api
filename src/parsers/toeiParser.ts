@@ -1,56 +1,95 @@
-import { Section, Train } from "types/response";
-import OdptTrain, { OdptDirection } from "types/toeiApi";
+import { Section, Train, TrainDirection } from "types/response";
+import OdptTrain from "types/toeiApi";
 import { destListKeio, destListToei } from "data";
 import dayjs from "dayjs";
 import minMax from "dayjs/plugin/minMax";
 
 dayjs.extend(minMax);
 
-const toeiParser = (
-  raw: OdptTrain[]
-): { sections: Section[]; date: string } => {
-  const trainMap = new Map<string, Train[]>();
-  const result: Section[] = [];
-  let date = dayjs();
-  for (const train of raw) {
-    // Record Date and Time
-    date = dayjs.max(date, dayjs(train["dc:date"]));
-    // Generate Position Keys
-    const pos =
-      (train["odpt:railDirection"] === OdptDirection.E ? "E" : "W") +
-      (toeiStations.indexOf(train["odpt:fromStation"]!.split(".").pop()!) + 1) +
-      (train["odpt:toStation"]
-        ? "-" +
-          (toeiStations.indexOf(train["odpt:toStation"].split(".").pop()!) + 1)
-        : "");
-    // Push to Object
-    if (!trainMap.has(pos)) trainMap.set(pos, []);
-    trainMap.get(pos)!.push({
-      id: train["odpt:trainNumber"],
-      type: train["odpt:trainType"]!.split(".").pop()! === "Local" ? "6" : "2",
-      direction:
-        train["odpt:railDirection"] === OdptDirection.W ? "West" : "East",
-      delay: train["odpt:delay"]!,
-      dest: parseDestToId(
-        destListToei[train["odpt:destinationStation"]![0].split(".").pop()!]
-      ),
-      length: null,
-    });
-  }
-  // Convert to Array
-  for (const key of trainMap.keys()) {
-    result.push({
-      id: key,
-      trains: trainMap.get(key)!,
-    });
-  }
+const toeiParser = (raw: OdptTrain[]): { trains: Train[]; date: string } => {
+  const date = dayjs();
 
-  return { sections: result, date: date.format("YYYY.MM.DD HH:mm:ss") };
+  const trains: Train[] = raw
+    // 不要な部分を削ぎ落とし
+    .map(
+      ({
+        "odpt:trainNumber": id,
+        "odpt:trainType": type,
+        "odpt:railDirection": direction,
+        "odpt:destinationStation": destinations,
+        "odpt:delay": delay,
+        "odpt:toStation": toStation,
+        "odpt:fromStation": fromStation,
+      }) => ({
+        id,
+        type: type?.split(".").pop(),
+        direction: direction?.split(".").pop(),
+        dest: destinations?.[0].split(".").pop(),
+        delay,
+        toStation: toStation?.split(".").pop(),
+        fromStation: fromStation?.split(".").pop(),
+      })
+    )
+    // 希望の形式に変換
+    .map(
+      ({
+        id,
+        type,
+        direction: _direction,
+        dest,
+        delay,
+        toStation,
+        fromStation,
+      }) => {
+        const direction = _direction === "Westbound" ? "West" : "East";
+        return {
+          id,
+          type: type === "Express" ? "2" : "6",
+          direction,
+          delay: delay ?? 0,
+          dest: destToId(dest ?? "ERROR"),
+          length: null,
+          section: stationToSection(
+            fromStation ?? "ERROR",
+            toStation ?? null,
+            direction
+          ),
+        };
+      }
+    );
+
+  return { date: date.format("YYYY.MM.DD HH:mm:ss"), trains };
 };
 
-const parseDestToId = (destJa: string): string =>
-  Object.keys(destListKeio).filter((key) => destListKeio[key] === destJa)[0] ??
-  "999";
+const destToId = (dest: string): string => {
+  const destJa = destListToei[dest] ?? "ERROR";
+  return (
+    Object.keys(destListKeio).filter(
+      (key) => destListKeio[key] === destJa
+    )[0] ?? "999"
+  );
+};
+
+const stationToSection = (
+  fromStation: string,
+  toStation: string | null,
+  direction: TrainDirection
+): Section => {
+  if (toStation)
+    // 駅間走行中
+    return {
+      id: toeiStations.indexOf(toStation) + 1,
+      type: "Way",
+      track: direction === "West" ? 1 : 2,
+    };
+  else
+    // 駅停車中
+    return {
+      id: toeiStations.indexOf(fromStation) + 1,
+      type: "Sta",
+      track: direction === "West" ? 1 : 2,
+    };
+};
 
 const toeiStations: ReadonlyArray<string> = [
   "Shinjuku",

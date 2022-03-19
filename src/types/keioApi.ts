@@ -2,17 +2,17 @@
 
 interface Body {
   up: Up[];
-  TS: TS[];
-  TB: TB[];
+  TS?: TS[];
+  TB?: TB[];
 }
 
-interface TB {
+export interface TB {
   id: string;
   sn: Sn;
   ps: P[];
 }
 
-interface TS {
+export interface TS {
   id: string;
   sn: Sn;
   ps: P[];
@@ -21,6 +21,7 @@ interface TS {
 interface P {
   tr: string;
   sy: string;
+  sy_tr: string;
   ki: string;
   bs: string;
   dl: string;

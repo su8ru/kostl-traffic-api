@@ -1,102 +1,126 @@
-import Body, { Dt } from "types/keioApi";
-import { Section, Train } from "types/response";
-import { capitalMap, destListKeio, typeList } from "data";
+import Body, { Dt, TB, TS } from "types/keioApi";
+import { Section, Train, TrainDirection } from "types/response";
 import dayjs from "dayjs";
 import arraySupport from "dayjs/plugin/arraySupport";
 
 dayjs.extend(arraySupport);
 
-const parseKeio = (raw: Body): { sections: Section[]; date: string } => {
-  const trainMap = new Map<string, Train[]>();
-  const result: Section[] = [];
-  const date = parseDtToTime(raw.up[0].dt);
-  if ("TS" in raw) {
-    for (const station of raw.TS) {
-      if (station.sn !== "I") {
-        for (const train of station.ps) {
-          const pos = `${station.id}-${train.bs}`;
-          if (!trainMap.has(pos)) trainMap.set(pos, []);
-          const inf = parseInfToType(train.inf, +train.sy, !!+train.ki);
-          trainMap.get(pos)?.push({
+const parseKeio = (raw: Body): { trains: Train[]; date: string } => {
+  const trains: Train[] = [];
+
+  // 駅停車中
+  trains.push(
+    ...(raw.TS ?? [])
+      .filter(({ sn }) => sn !== "I")
+      .flatMap(({ id, ps }: TS) => {
+        return ps.map<Train>((train) => ({
+          id: train.tr.trim(),
+          type: train.sy_tr,
+          direction: (shouldReverse(id, +train.bs) ? !+train.ki : +train.ki)
+            ? "West"
+            : "East",
+          delay: +train.dl ?? 0,
+          dest: train.ik_tr,
+          length: +train.sr,
+          section: {
+            id: sectionIdToNumber(id),
+            type: "Sta",
+            // "2S", "3S" などの対策
+            track: parseInt(train.bs, 10),
+          },
+        }));
+      })
+  );
+
+  // 駅間走行中
+  trains.push(
+    ...(raw.TB ?? [])
+      .filter(({ sn }) => sn !== "I")
+      .flatMap(({ id, ps }: TB) =>
+        ps.map<Train>((train) => {
+          const { direction, section } = sectionIdToSection(id);
+          return {
             id: train.tr.trim(),
-            type: inf.sy ?? train.sy,
-            direction: +train.ki ? "West" : "East",
-            delay: +train.dl,
-            dest: inf.ik || train.ik_tr,
+            type: train.sy_tr,
+            direction,
+            delay: +train.dl ?? 0,
+            dest: train.ik_tr,
             length: +train.sr,
-          });
-        }
-      }
-    }
-    for (const key of trainMap.keys()) {
-      result.push({
-        id: key,
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-        trains: trainMap.get(key)!,
-      });
-    }
-  }
-  if ("TB" in raw) {
-    for (const station of raw.TB) {
-      if (station.sn !== "I" && typeof station !== "undefined") {
-        const pos = station.id;
-        result.push({
-          id: pos,
-          trains: station.ps.map((train) => {
-            const inf = parseInfToType(train.inf, +train.sy, !!+train.ki);
-            return {
-              id: train.tr.trim(),
-              type: inf.sy ?? train.sy,
-              direction: +train.ki ? "West" : "East",
-              delay: +train.dl,
-              dest: inf.ik || train.ik_tr,
-              length: +train.sr,
-            };
-          }),
-        });
-      }
-    }
-  }
-  return { sections: result, date };
+            section,
+          };
+        })
+      )
+  );
+
+  return { date: dtToTime(raw.up[0].dt), trains };
 };
 
-const parseInfToType = (
-  raw: string,
-  sy: number,
-  ki: boolean
-): { sy: string | null; ik: string | null } => {
-  if (raw !== "") {
-    const removeRegExp = /この列車は|駅で|\s|行となります。/;
-    const arr = raw.split(removeRegExp);
-    if (arr.length === 5) {
-      const data = {
-        chgSta: arr[1],
-        destSta: arr[3],
-        newType: arr[2],
-      } as { chgSta: string; destSta: string; newType: string | null };
-      for (const [key, value] of capitalMap) {
-        if (value === data.chgSta) data.chgSta = key;
-        if (value === data.destSta) data.destSta = key;
-      }
-      data.newType =
-        Object.keys(typeList).find((key) => typeList[+key] === data.newType) ||
-        "";
-      if (!ki && data.newType !== "")
-        [data.newType, sy] = [`${sy}`, +data.newType];
-      return {
-        ik:
-          Object.keys(destListKeio).find(
-            // eslint-disable-next-line no-irregular-whitespace
-            (key) => destListKeio[key] === `${data.chgSta}　${data.destSta}`
-          ) || null,
-        sy: data.newType ? `${sy}${data.newType}` : null,
-      };
-    }
-  }
-  return { sy: null, ik: null };
+const shouldReverse = (sectionId: string, track: number): boolean => {
+  // 高幡不動 1番線
+  if (sectionId === "E027" && track === 1) return true;
+  // 多摩動物公園
+  if (sectionId === "E037") return true;
+  // そのまま
+  return false;
 };
 
-const parseDtToTime = (dt: Dt[]): string => {
+const sectionIdToNumber = (sectionId: string): number => {
+  const sectionNo: number = +sectionId.substring(1) ?? 99;
+
+  // 新宿駅
+  if (sectionNo == 1) return 1;
+  // 本線
+  if (2 <= sectionNo && sectionNo <= 32) return sectionNo + 2;
+  // 新線
+  if (33 <= sectionNo && sectionNo <= 35) return sectionNo - 32;
+  // 競馬場線
+  if (sectionNo == 36) return 46;
+  // 動物園線
+  if (sectionNo == 37) return 47;
+  // 高尾線
+  if (38 <= sectionNo && sectionNo <= 43) return sectionNo + 10;
+  // 相模原線
+  if (44 <= sectionNo && sectionNo <= 54) return sectionNo - 9;
+
+  return 99;
+};
+
+const sectionIdToSection = (
+  sectionId: string
+): { direction: TrainDirection; section: Section } => {
+  const prefix = sectionId.substring(0, 1);
+
+  // 笹塚
+  if (sectionId === "S002")
+    return { direction: "West", section: { id: 4, type: "WayB", track: 1 } };
+  // 調布
+  if (sectionId === "S018")
+    return { direction: "East", section: { id: 18, type: "WayB", track: 2 } };
+  // 東府中
+  if (sectionId === "S021")
+    return { direction: "East", section: { id: 23, type: "WayB", track: 2 } };
+  // 高幡不動
+  if (sectionId === "S027")
+    return { direction: "West", section: { id: 29, type: "WayB", track: 1 } };
+  // 北野
+  if (sectionId === "S033")
+    return { direction: "East", section: { id: 33, type: "WayB", track: 2 } };
+
+  // 動物園線（上下が逆）
+  if (sectionId === "D037")
+    return { direction: "East", section: { id: 47, type: "Way", track: 2 } };
+
+  return {
+    direction: prefix === "U" ? "East" : "West",
+    section: {
+      id: sectionIdToNumber(sectionId),
+      type: "Way",
+      track: prefix === "U" ? 2 : 1,
+    },
+  };
+};
+
+const dtToTime = (dt: Dt[]): string => {
   if (dt.length) {
     const _dt: Dt = dt[0];
     const m = dayjs([+_dt.yy, +_dt.mt - 1, +_dt.dy, +_dt.hh, +_dt.mm, +_dt.ss]);
