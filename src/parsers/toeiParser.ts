@@ -6,7 +6,9 @@ import minMax from "dayjs/plugin/minMax";
 
 dayjs.extend(minMax);
 
-const toeiParser = (raw: OdptTrain[]): { trains: Train[]; date: string } => {
+const toeiParser = (
+  raw: OdptTrain[]
+): { timestamp: string; trains: Train[] } => {
   const date = dayjs();
 
   const trains: Train[] = raw
@@ -58,7 +60,7 @@ const toeiParser = (raw: OdptTrain[]): { trains: Train[]; date: string } => {
       }
     );
 
-  return { date: date.format("YYYY.MM.DD HH:mm:ss"), trains };
+  return { timestamp: date.format("YYYY.MM.DD HH:mm:ss"), trains };
 };
 
 const destToId = (dest: string): string => {
@@ -82,8 +84,8 @@ const stationToSection = (
       type: "Way",
       track: direction === "West" ? 1 : 2,
     };
+  // 駅停車中
   else
-    // 駅停車中
     return {
       id: toeiStations.indexOf(fromStation) + 1,
       type: "Sta",

@@ -5,7 +5,7 @@ import arraySupport from "dayjs/plugin/arraySupport";
 
 dayjs.extend(arraySupport);
 
-const parseKeio = (raw: Body): { trains: Train[]; date: string } => {
+const parseKeio = (raw: Body): { timestamp: string; trains: Train[] } => {
   const trains: Train[] = [];
 
   // 駅停車中
@@ -52,7 +52,7 @@ const parseKeio = (raw: Body): { trains: Train[]; date: string } => {
       )
   );
 
-  return { date: dtToTime(raw.up[0].dt), trains };
+  return { timestamp: dtToTime(raw.up[0].dt), trains };
 };
 
 const shouldReverse = (sectionId: string, track: number): boolean => {
