@@ -17,15 +17,19 @@ const cacheHandler = async (
 ): Promise<Response> => {
   const cache = await getCache(kvKey);
   const reqTime = new Date().getTime();
-  if (cache && cache.timestamp + ttl * 1000 > reqTime) {
-    return c.json({ fromKV: true, data: cache.data });
+  if (
+    cache &&
+    cache.timestamp + ttl * 1000 > reqTime &&
+    typeof cache.data === "object"
+  ) {
+    return c.json({ fromKV: true, ...cache.data });
   } else {
     const res = await fetch(apiUrl);
     const parser = kvKey === "keio" ? parseKeio : parseToei;
     const data = parser(await res.json());
     const timestamp = new Date().getTime();
     await putCache(kvKey, { data, timestamp });
-    return c.json({ fromKV: false, data });
+    return c.json({ fromKV: false, ...data });
   }
 };
 
