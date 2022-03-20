@@ -10,8 +10,10 @@ export type Train = {
   section: Section;
 };
 
+export type SectionType = "Sta" | "Way" | "WayB";
+
 export type Section = {
   id: number;
-  type: "Sta" | "Way" | "WayB";
+  type: SectionType;
   track: number;
 };

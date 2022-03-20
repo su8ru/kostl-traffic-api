@@ -1,5 +1,5 @@
 import Body, { Dt, TB, TS } from "types/keioApi";
-import { Section, Train, TrainDirection } from "types/response";
+import { Section, SectionType, Train, TrainDirection } from "types/response";
 import dayjs from "dayjs";
 import arraySupport from "dayjs/plugin/arraySupport";
 
@@ -85,6 +85,14 @@ const sectionIdToNumber = (sectionId: string): number => {
   return 99;
 };
 
+const sectionIdToType = (sectionId: string): SectionType => {
+  const sectionNo: number = +sectionId.substring(1) ?? 99;
+
+  if (33 <= sectionNo && sectionNo <= 54) return "WayB";
+
+  return "Way";
+};
+
 const sectionIdToSection = (
   sectionId: string
 ): { direction: TrainDirection; section: Section } => {
@@ -114,7 +122,7 @@ const sectionIdToSection = (
     direction: prefix === "U" ? "East" : "West",
     section: {
       id: sectionIdToNumber(sectionId),
-      type: "Way",
+      type: sectionIdToType(sectionId),
       track: prefix === "U" ? 2 : 1,
     },
   };
