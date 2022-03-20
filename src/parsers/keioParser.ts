@@ -11,7 +11,7 @@ const parseKeio = (raw: Body): { timestamp: string; trains: Train[] } => {
   // 駅停車中
   trains.push(
     ...(raw.TS ?? [])
-      .filter(({ sn }) => sn !== "I")
+      .filter(({ id, sn }) => sn !== "I" && id.substring(1, 2) !== "1")
       .flatMap(({ id, ps }: TS) => {
         return ps.map<Train>((train) => ({
           id: train.tr.trim(),
@@ -35,7 +35,7 @@ const parseKeio = (raw: Body): { timestamp: string; trains: Train[] } => {
   // 駅間走行中
   trains.push(
     ...(raw.TB ?? [])
-      .filter(({ sn }) => sn !== "I")
+      .filter(({ id, sn }) => sn !== "I" && id.substring(1, 2) !== "1")
       .flatMap(({ id, ps }: TB) =>
         ps.map<Train>((train) => {
           const { direction, section } = sectionIdToSection(id);
